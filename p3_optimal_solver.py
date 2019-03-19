@@ -25,6 +25,54 @@ def merge_two_dicts(x, y):
     z.update(y)    # modifies z with y's keys and values & returns None
     return z
 
+
+def read_json_file(filename):
+    with open(filename) as f:
+        js_graph = json.load(f)
+    return json_graph.node_link_graph(js_graph)
+
+def generating_delay_matrix(graph):
+    d = {}
+    for i in list(graph.nodes):
+        for j in list(graph.nodes):
+            path_length, path_nodes, negative_cycle = bf.bellman_ford(graph, source=i, target=j, weight="delay")
+            d = merge_two_dicts(d, { (i,j) : path_length})
+    return d
+
+def generating_req_adj(nfs, states, graph):
+    adj = {}
+    for i in list(states):
+        for j in list(nfs):
+            try:
+                graph[j][i]
+                adj = merge_two_dicts(adj, { (j,i) : 1})
+            except:
+                adj = merge_two_dicts(adj, {(j, i): 0})
+    return adj
+
+def generating_nf_mapping_matrix(graph):
+    m = {}
+    for i in list(graph.nodes):
+        for j in graph.nodes[i]['NFs']:
+            m = merge_two_dicts(m, {j: i})
+    return m
+
+def solving_placement_problem_from_file(topology_graph, request_graph):
+    # Reading networkx file
+    G_topology = read_json_file(topology_graph)
+    G_request = read_json_file(request_graph)
+
+    set_PM = list(G_topology.nodes)
+    set_state, set_nf = bipartite.sets(G_request)
+    s = {i: G_request.nodes[i]['size'] for i in set_state}
+    c = {i: G_topology.nodes[i]['capacity'] for i in set_PM}
+    e_t = {i: G_topology.edges[i]['delay'] for i in list(G_topology.edges)}
+    d = generating_delay_matrix(G_topology)
+    e_r = generating_req_adj(set_state, set_nf, G_request)
+    M = generating_nf_mapping_matrix(G_topology)
+
+    solving_placement_problem(set_PM, set_state, set_nf, s, c, d, e_r, M)
+
 def solving_placement_problem(set_PM, set_state, set_nf, s, c, d, e_r, M):
     opt_model = cpx.Model(name="P3")
 
