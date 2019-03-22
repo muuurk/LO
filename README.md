@@ -4,7 +4,7 @@
 
 Before using solvers, dependecies are need to be installed. Please run the followings:
 
-* pip install bellmanford
+* pip install bellmanford docplex cplex
 
 === How to start simulation ===
 
