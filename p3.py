@@ -25,6 +25,7 @@ import p3_heuristic_solver
 import matplotlib.pyplot as plt
 import subprocess
 import csv
+import os
 
 
 def merge_two_dicts(x, y):
@@ -144,6 +145,14 @@ if __name__ == "__main__":
     exporting = False
     mode="fattree" #test or fattree
 
+    if not os.path.exists("optimization_results"):
+        os.makedirs("optimization_results")
+
+    if not os.path.exists("cplex_models/"):
+        os.makedirs("cplex_models/")
+
+    if not os.path.exists("graph_models/"):
+        os.makedirs("graph_models/")
 
     f = open('optimization_results/summary.csv', mode='a')
     f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
