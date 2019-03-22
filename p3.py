@@ -22,24 +22,25 @@ import datetime
 import p3_greedy_solver
 import p3_optimal_solver
 import p3_heuristic_solver
-import matplotlib.pyplot as plt
 import subprocess
 import csv
 import os
 
 
 def merge_two_dicts(x, y):
-    z = x.copy()   # start with x's keys and values
-    z.update(y)    # modifies z with y's keys and values & returns None
+    z = x.copy()  # start with x's keys and values
+    z.update(y)  # modifies z with y's keys and values & returns None
     return z
+
 
 def generating_delay_matrix(graph):
     d = {}
     for i in list(graph.nodes):
         for j in list(graph.nodes):
             path_length, path_nodes, negative_cycle = bf.bellman_ford(graph, source=i, target=j, weight="delay")
-            d = merge_two_dicts(d, { (i,j) : path_length})
+            d = merge_two_dicts(d, {(i, j): path_length})
     return d
+
 
 def generating_req_adj(nfs, states, graph):
     adj = {}
@@ -47,10 +48,11 @@ def generating_req_adj(nfs, states, graph):
         for j in list(nfs):
             try:
                 graph[j][i]
-                adj = merge_two_dicts(adj, { (j,i) : 1})
+                adj = merge_two_dicts(adj, {(j, i): 1})
             except:
                 adj = merge_two_dicts(adj, {(j, i): 0})
     return adj
+
 
 def generating_nf_mapping_matrix(graph):
     m = {}
@@ -58,6 +60,7 @@ def generating_nf_mapping_matrix(graph):
         for j in graph.nodes[i]['NFs']:
             m = merge_two_dicts(m, {j: i})
     return m
+
 
 def create_test_topology(test_num, exporting):
     ### Generating topology graph ############################
@@ -116,7 +119,9 @@ def create_test_topology(test_num, exporting):
     G_request.add_nodes_from(['function_1', 'function_2'], bipartite=1)
 
     # Edges
-    G_request.add_edges_from([('state_1', 'function_1'), ('state_2', 'function_1'), ('state_3', 'function_1'), ('state_3', 'function_2'), ('state_4', 'function_2')])
+    G_request.add_edges_from(
+        [('state_1', 'function_1'), ('state_2', 'function_1'), ('state_3', 'function_1'), ('state_3', 'function_2'),
+         ('state_4', 'function_2')])
 
     # Exporting
     if exporting:
@@ -143,7 +148,7 @@ if __name__ == "__main__":
     from_num = 10
     TEST_NUM = 15
     exporting = False
-    mode="fattree" #test or fattree
+    mode = "fattree"  # test or fattree
 
     if not os.path.exists("optimization_results"):
         os.makedirs("optimization_results")
@@ -157,36 +162,11 @@ if __name__ == "__main__":
     f = open('optimization_results/summary.csv', mode='a')
     f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     f_writer.writerow(["----- {} -----".format(datetime.datetime.now())])
-    f_writer.writerow(["Scenario", "OPTIMAL", "GREEDY", "FLOODING", "GREEDY %", "FLOODING %"])
+    f_writer.writerow(["Scenario", "OPTIMAL", "GREEDY", "FLOODING", "GREEDY %", "FLOODING %", "GREEDY RUNNING TIME",
+                       "FLOODING RUNNING TIME"])
     f.close()
 
     for i in range(from_num, TEST_NUM):
-
-        ### Converting input for cplex from networkx #############
-
-        # # Set of Physical Machines
-        # set_PM = list(G_topology.nodes)
-        #
-        # # Set of States and Network Functions
-        # set_state, set_nf = bipartite.sets(G_request)
-        #
-        # # Set of State's sizes
-        # s = {i: G_request.nodes[i]['size'] for i in set_state}
-        #
-        # # Set of PM's capacities
-        # c = {i: G_topology.nodes[i]['capacity'] for i in set_PM}
-        #
-        # # Topology edges
-        # e_t = {i: G_topology.edges[i]['delay'] for i in list(G_topology.edges)}
-        #
-        # # Delay matrix
-        # d = generating_delay_matrix(G_topology)
-        #
-        # # Edge matrix of states and nfs
-        # e_r = generating_req_adj(set_state, set_nf, G_request)
-        #
-        # # Mapping of NFs
-        # M = generating_nf_mapping_matrix(G_topology)
 
         if mode == "test":
             if exporting:
@@ -195,28 +175,34 @@ if __name__ == "__main__":
         if mode == "fattree":
             subprocess.call("./tree_topology_generator.py -s 10 -r 10 -o {}".format(i), shell=True)
 
-
-        print("PROBLEM {}---------------------------------------------------------------------------------------------").format(i)
+        print(
+            "PROBLEM {}---------------------------------------------------------------------------------------------").format(
+            i)
 
         ### Getting Optimal solution #######################################################################################
         print("\nOPTIMAL SOLUTION:")
         opt = p3_optimal_solver.solving_placement_problem_from_file("graph_models/topology_graph_{}.json".format(i),
-                                                             "graph_models/request_graph_{}.json".format(i), i)
+                                                                    "graph_models/request_graph_{}.json".format(i), i)
         print(datetime.datetime.now())
 
         ### Getting Greedy solution ########################################################################################
         print("\nGREEDY SOLUTION:")
-        print(datetime.datetime.now())
+        greedy_t0 = datetime.datetime.now()
         greedy = p3_greedy_solver.solving_placement_problem_from_file("graph_models/topology_graph_{}.json".format(i),
-                                                             "graph_models/request_graph_{}.json".format(i), i)
-        print(datetime.datetime.now())
+                                                                      "graph_models/request_graph_{}.json".format(i), i)
+        greedy_t1 = datetime.datetime.now()
+        greedy_rt = greedy_t1 - greedy_t0
+        print("Running time: {}".format(greedy_rt))
 
         ### Getting some heuristic solution ################################################################################
         print("\nTHIRD SOLUTION:")
-        print(datetime.datetime.now())
-        flooding = p3_heuristic_solver.solving_placement_problem_from_file("graph_models/topology_graph_{}.json".format(i),
-                                                             "graph_models/request_graph_{}.json".format(i), i)
-        print(datetime.datetime.now())
+        flooding_t0 = datetime.datetime.now()
+        flooding = p3_heuristic_solver.solving_placement_problem_from_file(
+            "graph_models/topology_graph_{}.json".format(i),
+            "graph_models/request_graph_{}.json".format(i), i)
+        flooding_t1 = datetime.datetime.now()
+        flooding_rt = flooding_t1 - flooding_t0
+        print("Running time: {}".format(flooding_rt))
 
         opt = float(opt)
         greedy = float(greedy)
@@ -225,9 +211,11 @@ if __name__ == "__main__":
         f = open('optimization_results/summary.csv', mode='a')
         f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         try:
-            f_writer.writerow(["Scenario {}".format(i), opt, greedy, flooding, ((greedy/opt)*100)-100, ((flooding/opt)*100)-100])
+            f_writer.writerow(["Scenario {}".format(i), opt, greedy, flooding, ((greedy / opt) * 100) - 100,
+                               ((flooding / opt) * 100) - 100, greedy_rt, flooding_rt])
         except:
-            f_writer.writerow(["Scenario {}".format(i)])
+            f_writer.writerow(["Scenario {}".format(i), "-", "-", "-", "-", "-", greedy_rt, flooding_rt])
         f.close()
 
         print("-------------------------------------------------------------------------------------------------------")
+
