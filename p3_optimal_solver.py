@@ -162,7 +162,8 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
                 result = json.load(f)
                 for i in result["CPLEXSolution"]["variables"]:
                     if i["value"] == str(1):
-                        print("{} = 1".format(i["name"]))
+                        #print("{} = 1".format(i["name"]))
+			pass
                 print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
                 return result["CPLEXSolution"]["header"]["objectiveValue"]
     else:
@@ -170,7 +171,8 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
             result = json.load(f)
             for i in result["CPLEXSolution"]["variables"]:
                 if i["value"] == str(1):
-                    print("{} = 1".format(i["name"]))
+                    #print("{} = 1".format(i["name"]))
+		    pass
             print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
             return result["CPLEXSolution"]["header"]["objectiveValue"]
 

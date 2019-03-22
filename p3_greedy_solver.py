@@ -112,7 +112,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
         sum_cost = 0
         for state, map in mapping.iteritems():
             sum_cost += map["cost"]
-            print("State {} -> PM {}, COST: {}".format(state, map["host"], map["cost"]))
+            #print("State {} -> PM {}, COST: {}".format(state, map["host"], map["cost"]))
             f.write("State {} -> PM {}, COST: {}\n".format(state, map["host"], map["cost"]))
 
         print("*** Delay cost: {} ***".format(sum_cost))

@@ -260,7 +260,7 @@ def solving_placement_problem(G_topology, G_request, test_num):
             for s in m['states']:
                 cost = get_cost_of_mapping(s, m["node"], PMs, G_request, G_topology)
                 sum_cost += cost
-                print("State {} -> PM {}, COST: {}".format(s, m["node"], cost))
+                #print("State {} -> PM {}, COST: {}".format(s, m["node"], cost))
                 f.write("State {} -> PM {}, COST: {}".format(s, m["node"], cost))
 
         print("*** Delay cost: {} ***".format(sum_cost))
