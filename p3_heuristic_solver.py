@@ -25,7 +25,7 @@ def read_json_file(filename):
 
 def get_PM_of_NF(graph, nf):
     for pm in list(graph.nodes):
-        if nf in graph.nodes[pm]['NFs']:
+        if nf in graph.nodes[   pm]['NFs']:
             return pm
     raise Exception("Given NF is not mapped into any of the PMs")
 
@@ -60,9 +60,8 @@ def get_optimal_for_state(PMs, state_or_nf, G_request, G_topology, state_name, t
 
     return min_host["host"], min_host["cost"]
 
-def ordering_states(graph):
+def ordering_states(graph, set_state, set_nf):
     states = []
-    set_state, set_nf = bipartite.sets(graph)
 
     for i in set_state:
         no_insert = True
@@ -79,12 +78,12 @@ def ordering_states(graph):
             states.append(str(i))
     return states
 
-def solving_placement_problem_from_file(topology_graph, request_graph):
+def solving_placement_problem_from_file(topology_graph, request_graph, test_num):
     # Reading networkx file
     G_topology = read_json_file(topology_graph)
     G_request = read_json_file(request_graph)
 
-    solving_placement_problem(G_topology, G_request)
+    return solving_placement_problem(G_topology, G_request, test_num)
 
 def init_tmp_mapping(PMs):
     tmp_mapping = []
@@ -181,24 +180,38 @@ def get_state_to_move(tmp_mapping, state_or_nf):
             smallest_state = s
     return smallest_state
 
-def get_possible_dest_nodes(tmp_mapping, no_dst, state, state_size):
-    dest_hosts = []
-    for i in tmp_mapping:
-        if i['node'] != no_dst:
-            inserting = False
-            if i['capacity'] - i['load'] >= state_size:
-                if dest_hosts == []:
-                    dest_hosts.append(i)
-                else:
-                    for j in dest_hosts:
-                        if i['capacity'] - (i['load'] + state_size) < j['capacity'] - (j['load'] + state_size):
-                            dest_hosts.insert(dest_hosts.index(i),j)
-                            inserting = True
-                            break
-                    if not inserting:
-                        dest_hosts.append(i)
+def get_possible_dest_nodes(tmp_mapping, src_host, state, state_size, G_request, G_topology, current_load):
+    possible_nodes = []
+    PMs = G_topology.nodes
+    nf_hosts = [pm for pm in PMs for nf in list(G_request.adj[state]) if nf in PMs[pm]['NFs']]
 
-    return dest_hosts
+    for pm in PMs:
+        delay_cost = 0
+        for dest_host in nf_hosts:
+            path_length, path_nodes, negative_cycle = bf.bellman_ford(G_topology, source=pm, target=dest_host,
+                                                                      weight="delay")
+            delay_cost += path_length
+
+        # Inserting PM
+        if possible_nodes == []:
+            possible_nodes.append({"node":pm,"cost":delay_cost})
+        else:
+            insert = False
+            for n in possible_nodes:
+                if delay_cost < n["cost"]:
+                    possible_nodes.insert(possible_nodes.index(n),{"node":pm,"cost":delay_cost})
+                    insert = True
+                    break
+            if not insert:
+                possible_nodes.append({"node":pm,"cost":delay_cost})
+
+
+    for i in possible_nodes:
+        if i['node'] != src_host:
+            detailed_host = next(a for a in tmp_mapping if a["node"] == i["node"])
+            if (detailed_host['capacity'] - (detailed_host['load']+state_size)) > current_load:
+                return i['node']
+    raise Exception("There is no valid mapping!")
 
 def get_cost_of_mapping(state, src_host, PMs, G_request, G_topology):
     dst_hosts = [pm for pm in PMs for nf in list(G_request.adj[state]) if nf in PMs[pm]['NFs']]
@@ -209,38 +222,54 @@ def get_cost_of_mapping(state, src_host, PMs, G_request, G_topology):
         delay_cost += path_length
     return delay_cost
 
-def solving_placement_problem(G_topology, G_request):
+def solving_placement_problem(G_topology, G_request, test_num):
 
     PMs = G_topology.nodes
     state_or_nf = G_request.nodes
 
-    ordered_states = ordering_states(G_request)
+    set_state_or_nf = list(G_request.nodes)
+    set_state, set_nf = [], []
+    for i in set_state_or_nf:
+        if "function" in i:
+            set_nf.append(i)
+        elif "state" in i:
+            set_state.append(i)
+
+
+    ordered_states = ordering_states(G_request, set_state, set_nf)
     tmp_mapping = init_tmp_mapping(PMs)
 
     for s in ordered_states:
         node, cost = get_optimal_for_state(PMs, state_or_nf, G_request, G_topology, s, tmp_mapping)
         tmp_mapping = mapping_state_to_node_in_tmp_mapping(s, node, tmp_mapping, state_or_nf)
 
+    try:
+        while exist_minus_capacity(tmp_mapping):
 
-    while exist_minus_capacity(tmp_mapping):
+            state_to_move = get_state_to_move(tmp_mapping,state_or_nf)
+            src_host = tmp_mapping[0]['node']
+            dst_hosts = get_possible_dest_nodes(tmp_mapping, src_host, state_to_move, state_or_nf[state_to_move]['size'],G_request, G_topology, tmp_mapping[0]["capacity"] - tmp_mapping[0]["load"])
 
-        state_to_move = get_state_to_move(tmp_mapping,state_or_nf)
-        src_host=tmp_mapping[0]['node']
-        dst_hosts = get_possible_dest_nodes(tmp_mapping, src_host, state_to_move, state_or_nf[state_to_move]['size'])
-        if dst_hosts == []:
-            raise Exception("There is no valid mapping!")
+            tmp_mapping = deleting_state_from_tmp_mapping(state_to_move, state_or_nf, src_host, tmp_mapping)
+            tmp_mapping = mapping_state_to_node_in_tmp_mapping(state_to_move,dst_hosts,tmp_mapping,state_or_nf)
 
-        tmp_mapping = deleting_state_from_tmp_mapping(state_to_move, state_or_nf, src_host, tmp_mapping)
-        tmp_mapping = mapping_state_to_node_in_tmp_mapping(state_to_move,dst_hosts[0]['node'],tmp_mapping,state_or_nf)
+        f = open("optimization_results/p3_flooding_result_{}.json".format(test_num), "a")
+        mapping = tmp_mapping
+        sum_cost = 0
+        for m in mapping:
+            for s in m['states']:
+                cost = get_cost_of_mapping(s, m["node"], PMs, G_request, G_topology)
+                sum_cost += cost
+                print("State {} -> PM {}, COST: {}".format(s, m["node"], cost))
+                f.write("State {} -> PM {}, COST: {}".format(s, m["node"], cost))
 
-    mapping = tmp_mapping
-    sum_cost = 0
-    for m in mapping:
-        for s in m['states']:
-            cost = get_cost_of_mapping(s, m["node"], PMs, G_request, G_topology)
-            sum_cost += cost
-            print("State {} -> PM {}, COST: {}".format(s, m["node"], cost))
+        print("*** Delay cost: {} ***".format(sum_cost))
+        f.write("*** Delay cost: {} ***".format(sum_cost))
+        return sum_cost
 
-    print("SUMMA COST: {}".format(sum_cost))
+    except Exception as e:
+        print("EXCEPTION: {}".format(e))
+        return 0
+
 
 

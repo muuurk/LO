@@ -23,9 +23,8 @@ def read_json_file(filename):
         js_graph = json.load(f)
     return json_graph.node_link_graph(js_graph)
 
-def ordering_states(graph):
+def ordering_states(graph, set_state, set_nf):
     states = []
-    set_state, set_nf = bipartite.sets(graph)
 
     for i in set_state:
         no_insert = True
@@ -58,23 +57,31 @@ def try_to_map_locally(G_request, G_topology, mapping, s):
             return True, mapping
     return False, mapping
 
-def solving_placement_problem_from_file(topology_graph, request_graph):
+def solving_placement_problem_from_file(topology_graph, request_graph, test_num):
     # Reading networkx file
     G_topology = read_json_file(topology_graph)
     G_request = read_json_file(request_graph)
 
-    solving_placement_problem(G_topology, G_request)
-
-def solving_placement_problem(G_topology, G_request):
-
     PMs = G_topology.nodes
     state_or_nf = G_request.nodes
 
-    ordered_states = ordering_states(G_request)
+    set_state_or_nf = list(G_request.nodes)
+    set_state, set_nf = [], []
+    for i in set_state_or_nf:
+        if "function" in i:
+            set_nf.append(i)
+        elif "state" in i:
+            set_state.append(i)
+
+    ordered_states = ordering_states(G_request,set_state, set_nf )
 
     mapping = {i : {} for i in ordered_states}
+    valid_mapping = True
 
     for s in ordered_states:
+
+        if s == "state_4":
+            asd = 0
 
         success_map, mapping = try_to_map_locally(G_request, G_topology, mapping, s)
         if not success_map:
@@ -95,14 +102,25 @@ def solving_placement_problem(G_topology, G_request):
             if min_host["host"] != "":
                 mapping[s] = {"host":  min_host["host"], "cost":  min_host["cost"]}
                 PMs[min_host["host"]]['capacity'] = PMs[min_host["host"]]['capacity'] - state_or_nf[s]['size']
+            else:
+                valid_mapping = False
+                print("There is no valid mapping for the given problem by the Greedy Algorythm")
 
 
-    sum_cost = 0
-    for state, map in mapping.iteritems():
-        sum_cost += map["cost"]
-        print("State {} -> PM {}, COST: {}".format(state, map["host"], map["cost"]))
+    f = open("optimization_results/p3_greedy_result_{}.json".format(test_num), "a")
+    if valid_mapping:
+        sum_cost = 0
+        for state, map in mapping.iteritems():
+            sum_cost += map["cost"]
+            print("State {} -> PM {}, COST: {}".format(state, map["host"], map["cost"]))
+            f.write("State {} -> PM {}, COST: {}\n".format(state, map["host"], map["cost"]))
 
-    print("SUMMA COST: {}".format(sum_cost))
+        print("*** Delay cost: {} ***".format(sum_cost))
+        f.write("*** Delay cost: {} ***\n".format(sum_cost))
+        return sum_cost
+    else:
+        f.write("There is no valid mapping for the given problem by the Greedy Algorythm\n")
+        return 0
 
 
 
