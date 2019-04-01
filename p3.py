@@ -252,7 +252,7 @@ def request_validator(topology_graph, request_graph):
 if __name__ == "__main__":
 
     from_num = 0
-    TEST_NUM = 10
+    TEST_NUM = 1
     exporting = True
     PROBLEM = 5
     mode = "fattree"  # test or fattree
@@ -279,10 +279,11 @@ if __name__ == "__main__":
             create_test_topology(i, exporting, PROBLEM)
 
         if mode == "fattree":
-            subprocess.call("./tree_topology_generator.py -s 1 -r 4 -f 4 -o {} -p {}".format(i, "p{}".format(PROBLEM)),
+            if exporting == True:
+                subprocess.call("./tree_topology_generator.py -s 1 -r 4 -f 4 -o {} -p {}".format(i, "p{}".format(PROBLEM)),
                             shell=True)
 
-        request_validator("graph_models/p5_topology_graph_{}.json".format(i), "graph_models/p5_request_graph_{}.json".format(i))
+                request_validator("graph_models/p5_topology_graph_{}.json".format(i), "graph_models/p5_request_graph_{}.json".format(i))
 
         print(
             "PROBLEM {}---------------------------------------------------------------------------------------------").format(

@@ -18,6 +18,7 @@ import bellmanford as bf
 from networkx.readwrite import json_graph
 import json
 import itertools
+import datetime
 
 def read_json_file(filename):
     with open(filename) as f:
@@ -158,9 +159,14 @@ def do_mapping(G_request, G_topology, PMs, mapping, virtual_element, pairing = {
                     if max_hosts == []:
                         max_hosts.append({"host":pm, "capacity":PMs[pm]["capacity"]})
                     else:
+                        inserting = False
                         for i in max_hosts:
                             if i["capacity"] < PMs[pm]['capacity']:
-                                max_hosts.insert(max_hosts.index(i),i)
+                                max_hosts.insert(max_hosts.index(i),{'host':pm,'capacity':PMs[pm]['capacity']})
+                                inserting = True
+                                break
+                        if not inserting:
+                            max_hosts.append({'host': pm, 'capacity': PMs[pm]['capacity']})
     if max_hosts != []:
         mapping[virtual_element] = {"host": max_hosts[0]["host"]}
         PMs[max_hosts[0]["host"]]['capacity'] = PMs[max_hosts[0]["host"]]['capacity'] - G_request.nodes[virtual_element]['size']
@@ -200,7 +206,7 @@ def map_with_no_replicas(G_request, G_topology, mapping, PMs, states, replicas, 
             print("There is no valid mapping for the given problem by the Greedy Algorythm")
 
 
-def get_writing_edge_count(ve,G_request, set_nf):
+def get_writing_edge_count(ve, G_request, set_nf):
     num_writing_edges = 0
     edges = []
     neigbors = get_function_neighbors(ve,G_request, set_nf)
@@ -236,6 +242,7 @@ def generating_delay_matrix(graph):
     return d
 
 def solving_placement_problem_from_file(topology_graph, request_graph, test_num):
+
     # Reading networkx file
     G_topology = read_json_file(topology_graph)
     G_request = read_json_file(request_graph)
@@ -278,6 +285,9 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
                     writer_function =writing_edges[0][0]
                     ve_function_pairing[s] = writer_function
                     unpaired_functions.remove(writer_function)
+                else:
+                    ve_function_pairing[s] = functions[0]
+                    unpaired_functions.remove(functions[0])
 
                 iter = 0
                 for ve, function in ve_function_pairing.items():
@@ -297,8 +307,8 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
     if valid_mapping:
         for state, map in mapping.items():
             #sum_cost += map["cost"]
-            print("State {} -> PM {}, COST: ?".format(state, map["host"]))
             f.write("State {} -> PM {}, COST: ?\n".format(state, map["host"]))
+            print("x_({},{}) = 1".format(map["host"], state))
 
         # Calculating cost
         servers = [i for i in PMs if "server" in i]
@@ -313,16 +323,6 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
             if PMs[i]['NFs'] != []:
                 for u in PMs[i]['NFs']:
                     x_vars[i, u] = 1
-
-        # x_vars["server_3", "state_1"] = 1
-        # x_vars["server_2", "state_3"] = 1
-        # x_vars["server_3", "state_2"] = 1
-        # x_vars["server_2", "state_4"] = 1
-        # x_vars["server_3", "replica_1"] = 1
-        # x_vars["server_1", "replica_2"] = 1
-        # x_vars["server_4", "replica_3"] = 1
-        # x_vars["server_4", "function_2"] = 1
-        # x_vars["server_1", "function_1"] = 1
 
         print("Generating state-function adjacency matrix...")
         e_r = generating_req_adj(set_state, set_nf + set_replica, G_request)
@@ -402,48 +402,12 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
             for u, v in list(itertools.permutations(set_state + set_replica + set_nf, 2)):
                 c = x_vars[i, u] * x_vars[j, v] * e_r[u, v] * d[i, j] * z_vars[u, v]
                 if c > 0:
-                    print("i : {}\tj : {}\tu : {}\tv : {}".format(i,j,u,v))
-                    print("{} * {} * {} * {} * {}".format(x_vars[i, u], x_vars[j, v], e_r[u, v], d[i, j], z_vars[u, v]))
-                    print("----------------------------------------------------")
-                # if u == "state_2" and v == "function_1":
-                #     print("i : {}\tj : {}\tu : {}\tv : {}".format(i, j, u, v))
-                #     print("{} * {} * {} * {} * {}".format(x_vars[i, u],x_vars[j, v],e_r[u, v],d[i, j],z_vars[u, v]))
-                #     print("----------------------------------------------------")
+                    pass
+                    #print("i : {}\tj : {}\tu : {}\tv : {}".format(i,j,u,v))
+                    #print("{} * {} * {} * {} * {}".format(x_vars[i, u], x_vars[j, v], e_r[u, v], d[i, j], z_vars[u, v]))
+                    #print("----------------------------------------------------")
                 sum_cost += c
 
-
-        """
-        sum_cost = 0
-        for nf in set_nf:
-            states_of_nf = get_state_neighbors(nf,G_request, set_state)
-            state_dict = {i:get_replica_neighbors(i,G_request) for i in states_of_nf}
-            state_replica_cost = 0
-            for state, replicas in state_dict.items():
-                #FIXME: infinity
-                min_read_cost = 10000000000
-                min_read_instance = None
-                for i in [state] + replicas:
-                    source = get_PM_of_NF(G_topology, nf, mapping)
-                    destination = get_PM_of_NF(G_topology, i, mapping)
-                    path_length, path_nodes, negative_cycle = bf.bellman_ford(G_topology, source=source, target=destination,
-                                                                              weight="delay")
-                    if path_length < min_read_cost:
-                        min_read_cost = path_length
-                        min_read_instance = i
-
-                # If nf also writes the state
-                writing_cost = 0
-                try:
-                    G_request[nf][state]
-                    destination = get_PM_of_NF(G_topology, min_read_instance, mapping)
-                    path_length, path_nodes, negative_cycle = bf.bellman_ford(G_topology, source=source, target=destination,
-                                                                          weight="delay")
-                    writing_cost = path_length
-                except:
-                    pass
-
-                sum_cost += (min_read_cost+writing_cost+state_replica_cost)
-        """
 
         print("*** Delay cost: {} ***".format(sum_cost))
         f.write("*** Delay cost: {} ***\n".format(sum_cost))

@@ -24,6 +24,7 @@ from docloud.job import JobClient
 import itertools
 import matplotlib.pyplot as plt
 import sys
+import datetime
 
 
 def merge_two_dicts(x, y):
@@ -356,7 +357,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
             with open("./optimization_results/p5_cplex_result_{}.json".format(test_num)) as f:
                 result = json.load(f)
                 for i in result["CPLEXSolution"]["variables"]:
-                    if ("x_" in i["name"] or "z_" in i["name"]) and i["value"] == str(1):
+                    if ("x_" in i["name"]) and i["value"] == str(1):
                         print("{} = 1".format(i["name"]))
             print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
             return result["CPLEXSolution"]["header"]["objectiveValue"]
@@ -364,7 +365,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
         with open("./optimization_results/p5_cplex_result_{}.json".format(test_num)) as f:
             result = json.load(f)
             for i in result["CPLEXSolution"]["variables"]:
-                if ("x_" in i["name"] or "z_" in i["name"]) and i["value"] == str(1):
+                if ("x_" in i["name"]) and i["value"] == str(1):
                     print("{} = 1".format(i["name"]))
             print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
             return result["CPLEXSolution"]["header"]["objectiveValue"]
