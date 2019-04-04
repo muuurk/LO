@@ -17,10 +17,10 @@ def parse_args():
     parser.add_argument('-f', '--function_num', type=int, action='store', dest='Fs', default=400, help='number of functions')
     parser.add_argument( '--state_min', type=int, action='store', dest='state_min', default=1, help='minimum number of states for a function')
     parser.add_argument('--state_max', type=int, action='store', dest='state_max', default=5, help='maximum number of states for a function')
-    parser.add_argument('--replica_min', type=int, action='store', dest='state_min', default=1,
-                        help='minimum number of replicas for a function')
-    parser.add_argument('--replica_max', type=int, action='store', dest='state_max', default=5,
-                        help='maximum number of replicas for a function')
+    parser.add_argument('--replica_min', type=int, action='store', dest='replica_min', default=0,
+                        help='minimum number of replicas for a state')
+    parser.add_argument('--replica_max', type=int, action='store', dest='replica_max', default=5,
+                        help='maximum number of replicas for a state')
 
     parser.add_argument('-p', '--problem', type=str, action='store', dest='problem', default="p3",
                         help='ID of the problem to solve.\n Possible problems: {}'.format(possible_problems))
@@ -118,7 +118,7 @@ def generating_requests_for_p5(args):
     for i in range(state_id):
 
         picked_state = "state_{}".format(i)
-        replica = random.randint(0,3)
+        replica = random.randint(args.replica_min,args.replica_max)
         for j in range(replica):
             G_request.add_node("replica_{}".format(replica_id), size=G_request.nodes[picked_state]["size"])
             G_request.nodes[picked_state]["replicas"].append("replica_{}".format(replica_id))

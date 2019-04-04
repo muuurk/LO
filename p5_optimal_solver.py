@@ -25,6 +25,7 @@ import itertools
 import matplotlib.pyplot as plt
 import sys
 import datetime
+import subprocess
 
 
 def merge_two_dicts(x, y):
@@ -134,6 +135,8 @@ def get_OLs(u, v, OL):
 def solving_placement_problem_from_file(topology_graph, request_graph, test_num):
     if not os.path.isfile("./cplex_models/p5_cplex_model_{}.lp".format(test_num)):
 
+        cplex_f = open('./cplex_models/p5_cplex_model_{}.lp'.format(test_num), mode='a')
+
         # Reading networkx file
         G_topology = read_json_file(topology_graph)
         G_request = read_json_file(request_graph)
@@ -175,84 +178,61 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
         x_vars = {(i, u): opt_model.binary_var(name="x_({0},{1})".format(i, u)) for i in set_PM for u in
                   set_state + set_replica + set_nf}
 
-        for i in set_PM:
-            for u in set_state + set_replica + set_nf:
-                print("x_({0},{1})".format(i, u))
-
-        print("\nCreating variables 2...")
+        print("Creating variables 2...")
         index_set = set()
         for i in set_PM:
             for u in set_state + set_replica + set_nf:
                 index_set.add((i, u))
-        index_combinations = list(itertools.permutations(index_set, 2))
+        index_permutations = list(itertools.permutations(index_set, 2))
         y_vars = {
             (i[0], i[1], j[0], j[1]): opt_model.binary_var(name="y_({},{})_({},{})".format(i[0], i[1], j[0], j[1])) for
-        i, j
-            in index_combinations}
+        i, j in index_permutations}
 
-        print("\nCreating variables 3...")
+        print("Creating variables 3...")
         index_permutations = list(itertools.permutations((set_state + set_nf + set_replica), 2))
         z_vars = {(u, v): opt_model.binary_var(name="z_({},{})".format(u, v)) for u, v in index_permutations}
 
-        for u, v in index_permutations:
-            print("z_({},{})".format(u, v))
-
-        # == constraints
-        print("\nCreating constraints 1 - virtual element can be mapped into only one server")
+        # == constraints 1 - virtual element can be mapped into only one server
+        print("Creating constraints 1 - virtual element can be mapped into only one server")
         for u in set_state + set_replica:
             c_name = "c1_{}".format(u)
             opt_model.add_constraint(ct=opt_model.sum(x_vars[i, u] for i in set_PM) == 1, ctname=c_name)
 
-        for u in set_state + set_replica:
-            for i in set_PM:
-                sys.stdout.write("x_vars[{}, {}] + ".format(i, u))
-            print("== 1")
 
-        # <= constraints
-        print("\nCreating constraints 2 - server capacity constraint")
+        # <= constraints 2 - server capacity constraint
+        print("Creating constraints 2 - server capacity constraint")
         for i in set_PM:
             c_name = "c2_{}".format(i)
             opt_model.add_constraint(ct=opt_model.sum(s[u] * x_vars[i, u] for u in set_state + set_replica) <= c[i],
                                      ctname=c_name)
 
-        for i in set_PM:
-            for u in set_state + set_replica:
-                sys.stdout.write("x_vars[{}, {}] + ".format(i, u))
-            print("<= {}".format(c[i]))
-
-        # <= constraints
-        print("\nCreating constraints 3 - anti-affinity rules")
+        # <= constraints 3 - anti-affinity rules
+        print("Creating constraints 3 - anti-affinity rules")
         for i in set_PM:
             if "server" in i:
-                # print("\nSERVER: {}".format(i))
                 for u, v in AA:
-                    c_name = "c3_{}_n){}_in_{}".format(u, v, i)
+                    c_name = "c3_{}_{}_in_{}".format(u, v, i)
                     opt_model.add_constraint(ct=(x_vars[i, u] + x_vars[i, v]) <= 1, ctname=c_name)
 
-        for i in set_PM:
-            if "server" in i:
-                # print("\nSERVER: {}".format(i))
-                for u, v in AA:
-                    print("x_vars[{},{}] + x_vars[{},{}]) <= 1".format(i, u, i, v))
-
-        # == constraints
-        print("\nCreating constraints 4 - NFs running places")
+        # == constraints 4 - NFs running places
+        print("Creating constraints 4 - NFs running places")
         for function in set_nf:
             for server in set_PM:
                 c_name = "c4_{}_in_{}".format(function, server)
                 try:
                     if M[function] == server:
                         opt_model.add_constraint(ct=x_vars[server, function] == 1, ctname=c_name)
-                        print("x_vars[{}, {}] == 1".format(server, function))
+                        # print("x_vars[{}, {}] == 1".format(server, function))
                     else:
                         opt_model.add_constraint(ct=x_vars[server, function] == 0, ctname=c_name)
-                        print("x_vars[{}, {}] == 0".format(server, function))
+                        # print("x_vars[{}, {}] == 0".format(server, function))
                 except:
                     opt_model.add_constraint(ct=x_vars[server, function] == 0, ctname=c_name)
-                    print("x_vars[{}, {}] == 0".format(server, function))
+                    # print("x_vars[{}, {}] == 0".format(server, function))
 
-        # >= constraints
-        print("\nCreating constraints 5 - QP -> ILP transformation constraints")
+
+        # >= constraints 5 - QP -> ILP transformation constraints
+        print("Creating constraints 5 - QP -> ILP transformation constraints")
 
         index_set = set()
         for i in set_PM:
@@ -267,70 +247,42 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
             opt_model.add_constraint(ct=y_vars[i[0], i[1], j[0], j[1]] >= (x_vars[i[0], i[1]] + x_vars[j[0], j[1]] -1), ctname=c_name)
 
 
-        # for pm_i in set_PM:
-        #     for j in range(set_PM.index(pm_i), len(set_PM)):
-        #         pm_j = set_PM[j]
-        #         for u in set_state:
-        #             for v in set_replica + set_nf:
-        #                 c_name = "c5_({},{})_({},{})_0".format(pm_i, u, pm_j, v)
-        #                 opt_model.add_constraint(ct=y_vars[pm_i, u, pm_j, v] >= 1, ctname=c_name)
-        #                 print("y_vars[{}, {}, {}, {}] >= 1".format(pm_i, u, pm_j, v))
-        #                 c_name = "c5_({},{})_({},{})_1".format(pm_i, u, pm_j, v)
-        #                 opt_model.add_constraint(ct=y_vars[pm_i, u, pm_j, v] >= x_vars[pm_i, u] + x_vars[pm_j, v] - 1,
-        #                                          ctname=c_name)
-        #                 print("y_vars[{}, {}, {}, {}] >= x_vars[{}, {}] + x_vars[{}, {}] - 1".format(pm_i, u, pm_j, v,
-        #                                                                                              pm_i, u, pm_j, v))
-
-        print("\nCreating constraints 6 - z variable rules")
+        print("Creating constraints 6 - z variable rules")
         for u in (set_state + set_nf + set_replica):
             for v in (set_state + set_nf + set_replica):
                 if u != v:
                     if is_OL(u, v, OL):
-                        c_name = "c6_({},{})".format(u, v)
+                        c_name = "c6_({},{})_0".format(u, v)
                         opt_model.add_constraint(
                             ct=opt_model.sum(z_vars[(i, j)] for i, j in get_OLs(u, v, OL)) == 1, ctname=c_name)
                     else:
-                        c_name = "c7_({},{})".format(u, v)
+                        c_name = "c6_({},{})_1".format(u, v)
                         if "function" in u and "replica" in v:
                             opt_model.add_constraint(ct=z_vars[(u, v)] == 0, ctname=c_name)
                         elif "replica" in u and "state" in v:
-                            print("z_vars[({}, {})] == 0".format(u, v))
+                            opt_model.add_constraint(ct=z_vars[(u, v)] == 0, ctname=c_name)
                         else:
                             opt_model.add_constraint(ct=z_vars[(u, v)] == 1, ctname=c_name)
 
-        for u in (set_state + set_nf + set_replica):
-            for v in (set_state + set_nf + set_replica):
-                if u != v:
-                    if is_OL(u, v, OL):
-                        for i, j in get_OLs(u, v, OL):
-                            sys.stdout.write("z_vars[({}, {})] + ".format(i, j))
-                        print("== 1")
-                    else:
-                        if "function" in u and "replica" in v:
-                            print("z_vars[({}, {})] == 0".format(u, v))
-                        elif "replica" in u and "state" in v:
-                            print("z_vars[({}, {})] == 0".format(u, v))
-                        else:
-                            print("z_vars[({}, {})] == 1".format(u, v))
 
-        print("\nCreating Objective function...")
-        print(datetime.datetime.now())
-
+        print("Creating Objective function...")
         servers = [i for i in set_PM if "server" in i]
         server_permutations = list(itertools.permutations(servers, 2))
-        # objective = opt_model.sum(
-        #     y_vars[i, u, j, v] * e_r[u, v] * d[i, j] * z_vars[u, v] for i, j in server_permutations for u, v in
-        #     list(itertools.permutations(set_state + set_replica + set_nf, 2)))
-
         objective = opt_model.sum(
             y_vars[i, u, j, v] * e_r[u, v] * d[i, j] * z_vars[u, v] for i, j in server_permutations for u, v in
             list(itertools.permutations(set_state + set_replica + set_nf, 2)))
 
-        # for minimization
+
+        # # # for minimization
         opt_model.minimize(objective)
 
         print("Exporting the problem")
         opt_model.export_as_lp(basename="p5_cplex_model_{}".format(test_num), path="./cplex_models")
+
+        subprocess.call(
+            "/home/epmetra/projects/cplex/cplex/bin/x86-64_linux/cplex -c 'read /home/epmetra/projects/LO/cplex_models/p5_cplex_model_{}.lp' 'write /home/epmetra/projects/LO/cplex_models/p5_cplex_model_{}.mps mps'".format(
+                test_num, test_num),
+            shell=True)
 
         # solving with local cplex
         # print("Solving the problem locally")
@@ -338,7 +290,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
         # asd = opt_model.solve()
 
         # solving in the docplex cloud
-        print("Solving the problem by the cloud")
+        print("Solving the problem by the cloud - 1")
     print(datetime.datetime.now())
 
     if not os.path.isfile("optimization_results/p5_cplex_result_{}.json".format(test_num)):
@@ -346,9 +298,11 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
                            "api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
         print(
             "You can check the status of the problem procesing here: https://dropsolve-oaas.docloud.ibmcloud.com/dropsolve")
-        resp = client.execute(input=["./cplex_models/p5_cplex_model_{}.lp".format(test_num)],
+        resp = client.execute(input=["./cplex_models/p5_cplex_model_{}.mps".format(test_num)],
                               output="optimization_results/p5_cplex_result_{}.json".format(test_num))
-        # resp = opt_model.solve(url="https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/", key="api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
+
+
+        mapping_result= {i:"" for i in set_state + set_nf + set_replica}
 
         if resp.job_info["solveStatus"] == "INFEASIBLE_SOLUTION":
             print("There is no valid mapping!")
@@ -359,8 +313,12 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
                 for i in result["CPLEXSolution"]["variables"]:
                     if ("x_" in i["name"]) and i["value"] == str(1):
                         print("{} = 1".format(i["name"]))
+                        server = i["name"].split(',')[0][3:]
+                        ve = i["name"].split(',')[1][:-1]
+                        mapping_result[ve] = server
+
             print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
-            return result["CPLEXSolution"]["header"]["objectiveValue"]
+            return result["CPLEXSolution"]["header"]["objectiveValue"], mapping_result
     else:
         with open("./optimization_results/p5_cplex_result_{}.json".format(test_num)) as f:
             result = json.load(f)
