@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import sys
 import datetime
 import subprocess
-
+import xmltodict
 
 def merge_two_dicts(x, y):
     z = x.copy()  # start with x's keys and values
@@ -390,7 +390,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
     if not os.path.isfile(CPLEX_PATH):
         raise RuntimeError('CPLEX does not exist ({})'.format(CPLEX_PATH))
 
-    subprocess.call("{} -c 'read {}/p5_cplex_model_{}_2.lp' 'write {}/p5_cplex_model_{}_2.mps mps'".format(
+    subprocess.call("{} -c 'read {}/p5_cplex_model_{}_2.lp' 'write {}/p5_cplex_model_{}_2.sav sav'".format(
             CPLEX_PATH, cplex_models_path, test_num, cplex_models_path, test_num), shell=True)
 
     t1 = datetime.datetime.now()
@@ -410,7 +410,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
                                "api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
             print(
                 "You can check the status of the problem procesing here: https://dropsolve-oaas.docloud.ibmcloud.com/dropsolve")
-            resp = client.execute(input=["{}/p5_cplex_model_{}_2.mps".format(cplex_models_path, test_num)],
+            resp = client.execute(input=["{}/p5_cplex_model_{}_2.sav".format(cplex_models_path, test_num)],
                                   output="{}/p5_cplex_result_{}_2".format(results_path, test_num))
 
             if resp.job_info["solveStatus"] == "INFEASIBLE_SOLUTION":
@@ -425,8 +425,6 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
             return False
 
     t2 = datetime.datetime.now()
-    from xml.dom import minidom
-    import xml.etree.ElementTree as ET
     if is_json_file("{}/p5_cplex_result_{}_2".format(results_path, test_num)):
         with open("{}/p5_cplex_result_{}_2".format(results_path, test_num)) as f:
             result = json.load(f)
@@ -442,7 +440,6 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
                 cost = result["CPLEXSolution"]["header"]["objectiveValue"]
 
     else:
-        import xmltodict
         with open("{}/p5_cplex_result_{}_2".format(results_path, test_num), 'r') as file:
             xml_result = file.read().replace('\n', '')
         result = xmltodict.parse(xml_result)
