@@ -256,9 +256,9 @@ if __name__ == "__main__":
     from_num = 0
     TEST_NUM = 10
     exporting = True
-    PROBLEM = 5
+    PROBLEM = 3
     mode = "fattree"  # test or fattree
-    CPLEX_PATH = "/home/ubuntu/szalay/LO/cplex/cplex/bin/x86-64_linux/cplex"
+    CPLEX_PATH = "/home/epmetra/projects/cplex/cplex/bin/x86-64_linux/cplex"
     PATH_FOR_CPLEX_MODELS = "./cplex_models/"
     PATH_FOR_GRAPH_MODELS = "./graph_models/"
     PATH_FOR_RESULTS = "./optimization_results/"
@@ -290,25 +290,28 @@ if __name__ == "__main__":
                 if not os.path.isfile("{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i)):
                     # FIXME: Instead of calling bash script import the generator
                     subprocess.call(
-                        "./tree_topology_generator.py -s 2 -r 1 -f 5 --state_min 2 --state_max 2 --replica_max 1 -o {} -p {}".format(
+                        "./tree_topology_generator.py -s 10 -r 10 -f 400 --state_min 2 --state_max 10 --replica_max 0 -o {} -p {}".format(
                             i, "p{}".format(PROBLEM)), shell=True)
 
         print("PROBLEM {}-----------------------------------------------------------------------------------").format(i)
         time.sleep(1)
 
-        if PROBLEM == 4:
+        if PROBLEM == 3:
             ### Optimal solution #######################################################################################
-            opt, mapping = p3_optimal_solver.solving_placement_problem_from_file(
+            print("***********************OPTIMAL***********************")
+            opt, opt_rt = p3_optimal_solver.solving_placement_problem_from_file(
                 "{}/p3_topology_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i),
-                "{}/p3_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i)
+                "{}/p3_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i, True, CPLEX_PATH, PATH_FOR_CPLEX_MODELS, PATH_FOR_RESULTS)
 
             ### Greedy solution ########################################################################################
-            greedy = p3_greedy_solver.solving_placement_problem_from_file(
+            print("***********************GREEDY***********************")
+            greedy, greedy_rt = p3_greedy_solver.solving_placement_problem_from_file(
                 "{}/p3_topology_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i),
                 "{}/p3_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i)
 
             ### Flooding solution ######################################################################################
-            flooding = p3_heuristic_solver.solving_placement_problem_from_file(
+            print("***********************FLOODING***********************")
+            flooding, flooding_rt = p3_heuristic_solver.solving_placement_problem_from_file(
                 "{}/topology_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i),
                 "{}/request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i)
 

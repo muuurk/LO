@@ -17,6 +17,7 @@ from networkx.algorithms import bipartite
 import bellmanford as bf
 from networkx.readwrite import json_graph
 import json
+import datetime
 
 def read_json_file(filename):
     with open(filename) as f:
@@ -73,6 +74,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
         elif "state" in i:
             set_state.append(i)
 
+    t1 = datetime.datetime.now()
     ordered_states = ordering_states(G_request,set_state, set_nf )
 
     mapping = {i : {} for i in ordered_states}
@@ -106,6 +108,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
                 valid_mapping = False
                 print("There is no valid mapping for the given problem by the Greedy Algorythm")
 
+    t2 = datetime.datetime.now()
 
     f = open("optimization_results/p3_greedy_result_{}.json".format(test_num), "a")
     if valid_mapping:
@@ -117,10 +120,10 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
 
         print("*** Delay cost: {} ***".format(sum_cost))
         f.write("*** Delay cost: {} ***\n".format(sum_cost))
-        return sum_cost
+        return sum_cost, t2-t1
     else:
         f.write("There is no valid mapping for the given problem by the Greedy Algorythm\n")
-        return 0
+        return 0, t2-t1
 
 
 

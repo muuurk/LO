@@ -21,7 +21,8 @@ import json
 import datetime
 import os.path
 from docloud.job import JobClient
-
+import subprocess
+import xmltodict
 
 def merge_two_dicts(x, y):
     z = x.copy()   # start with x's keys and values
@@ -67,7 +68,7 @@ def get_NF_of_state(graph, state):
     else:
         return vnfs
 
-def solving_placement_problem_from_file(topology_graph, request_graph, test_num):
+def solving_placement_problem_from_file(topology_graph, request_graph, test_num, locally, CPLEX_PATH, cplex_models_path, results_path):
 
     if not os.path.isfile("./cplex_models/p3_cplex_model_{}.lp".format(test_num)):
 
@@ -139,42 +140,69 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num)
         print("Exporting the problem")
         opt_model.export_as_lp(basename="p3_cplex_model_{}".format(test_num), path="./cplex_models")
 
+
+    if locally:
+
+        if not os.path.isfile(CPLEX_PATH):
+            raise RuntimeError('CPLEX does not exist ({})'.format(CPLEX_PATH))
+
+        # solving problem in locally
+        t1 = datetime.datetime.now()
+        print("\n\nSolving the problem locally")
+        subprocess.call(
+            "{} -c 'read {}/p3_cplex_model_{}.lp' 'optimize' 'write {}/p3_cplex_result_{} sol'".format(
+                CPLEX_PATH, cplex_models_path, test_num, results_path, test_num), shell=True)
+        t2 = datetime.datetime.now()
+
+        with open("{}/p3_cplex_result_{}".format(results_path, test_num), 'r') as file:
+            xml_result = file.read().replace('\n', '')
+        result = xmltodict.parse(xml_result)
+        print("\n\n*** Running time: {} ***".format(t2-t1))
+        print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["@objectiveValue"]))
+        cost = result["CPLEXSolution"]["header"]["@objectiveValue"]
+
+        return cost, t2-t1
+
     # solving with local cplex
     #print("Solving the problem locally")
     #print(datetime.datetime.now())
     #asd = opt_model.solve()
+    else:
 
-    # solving in the docplex cloud
-    print("Solving the problem by the cloud")
-    print(datetime.datetime.now())
+        # solving in the docplex cloud
+        print("Solving the problem by the cloud")
+        print(datetime.datetime.now())
 
-    if not os.path.isfile("optimization_results/p3_cplex_result_{}.json".format(test_num)):
-        client = JobClient("https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/", "api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
-        print("You can check the status of the problem procesing here: https://dropsolve-oaas.docloud.ibmcloud.com/dropsolve")
-        resp = client.execute(input=["./cplex_models/p3_cplex_model_{}.lp".format(test_num)], output="optimization_results/p3_cplex_result_{}.json".format(test_num))
-        #resp = opt_model.solve(url="https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/", key="api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
+        if not os.path.isfile("optimization_results/p3_cplex_result_{}.json".format(test_num)):
+            client = JobClient("https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/", "api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
+            print("You can check the status of the problem procesing here: https://dropsolve-oaas.docloud.ibmcloud.com/dropsolve")
+            t1 = datetime.datetime.now()
+            resp = client.execute(input=["./cplex_models/p3_cplex_model_{}.lp".format(test_num)], output="optimization_results/p3_cplex_result_{}.json".format(test_num))
+            #resp = opt_model.solve(url="https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/", key="api_e7f3ec88-92fd-4432-84d7-f708c4a33132")
+            t2 = datetime.datetime.now()
 
-        if resp.job_info["solveStatus"] == "INFEASIBLE_SOLUTION":
-                print("There is no valid mapping!")
-                return 0
+            if resp.job_info["solveStatus"] == "INFEASIBLE_SOLUTION":
+                    print("There is no valid mapping!")
+                    return 0, t2-t1
+            else:
+                with open("./optimization_results/p3_cplex_result_{}.json".format(test_num)) as f:
+                    result = json.load(f)
+                    for i in result["CPLEXSolution"]["variables"]:
+                        if i["value"] == str(1):
+                            #print("{} = 1".format(i["name"]))
+                            asd = 0
+                    print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
+                    return result["CPLEXSolution"]["header"]["objectiveValue"], t2-t1
         else:
+
             with open("./optimization_results/p3_cplex_result_{}.json".format(test_num)) as f:
                 result = json.load(f)
                 for i in result["CPLEXSolution"]["variables"]:
                     if i["value"] == str(1):
                         #print("{} = 1".format(i["name"]))
-			pass
+                        asd = 0
+                pass
                 print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
-                return result["CPLEXSolution"]["header"]["objectiveValue"]
-    else:
-        with open("./optimization_results/p3_cplex_result_{}.json".format(test_num)) as f:
-            result = json.load(f)
-            for i in result["CPLEXSolution"]["variables"]:
-                if i["value"] == str(1):
-                    #print("{} = 1".format(i["name"]))
-		    pass
-            print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
-            return result["CPLEXSolution"]["header"]["objectiveValue"]
-
+                return result["CPLEXSolution"]["header"]["objectiveValue"], 0
 
 

@@ -17,6 +17,7 @@ from networkx.algorithms import bipartite
 import bellmanford as bf
 from networkx.readwrite import json_graph
 import json
+import datetime
 
 def read_json_file(filename):
     with open(filename) as f:
@@ -235,6 +236,7 @@ def solving_placement_problem(G_topology, G_request, test_num):
         elif "state" in i:
             set_state.append(i)
 
+    t1 = datetime.datetime.now()
 
     ordered_states = ordering_states(G_request, set_state, set_nf)
     tmp_mapping = init_tmp_mapping(PMs)
@@ -253,6 +255,7 @@ def solving_placement_problem(G_topology, G_request, test_num):
             tmp_mapping = deleting_state_from_tmp_mapping(state_to_move, state_or_nf, src_host, tmp_mapping)
             tmp_mapping = mapping_state_to_node_in_tmp_mapping(state_to_move,dst_hosts,tmp_mapping,state_or_nf)
 
+        t2 = datetime.datetime.now()
         f = open("optimization_results/p3_flooding_result_{}.json".format(test_num), "a")
         mapping = tmp_mapping
         sum_cost = 0
@@ -265,11 +268,11 @@ def solving_placement_problem(G_topology, G_request, test_num):
 
         print("*** Delay cost: {} ***".format(sum_cost))
         f.write("*** Delay cost: {} ***".format(sum_cost))
-        return sum_cost
+        return sum_cost, t2-t1
 
     except Exception as e:
         print("EXCEPTION: {}".format(e))
-        return 0
+        return 0, 0
 
 
 
