@@ -244,7 +244,7 @@ def generating_delay_matrix(graph):
 
 def solving_placement_problem_from_file(topology_graph, request_graph, test_num, results_path):
 
-    if not os.path.isfile("{}/p5_cplex_result_{}_2".format(results_path, test_num)):
+    if not os.path.isfile("{}/p5_greedy_result_{}.json".format(results_path, test_num)):
 
         # Reading networkx file
         G_topology = read_json_file(topology_graph)

@@ -253,12 +253,12 @@ def request_validator(topology_graph, request_graph):
 
 if __name__ == "__main__":
 
-    from_num = 1
-    TEST_NUM = 20
-    exporting = False
+    from_num = 0
+    TEST_NUM = 10
+    exporting = True
     PROBLEM = 5
     mode = "fattree"  # test or fattree
-    CPLEX_PATH = "/home/epmetra/projects/cplex/cplex/bin/x86-64_linux/cplex"
+    CPLEX_PATH = "/home/ubuntu/szalay/LO/cplex/cplex/bin/x86-64_linux/cplex"
     PATH_FOR_CPLEX_MODELS = "./cplex_models/"
     PATH_FOR_GRAPH_MODELS = "./graph_models/"
     PATH_FOR_RESULTS = "./optimization_results/"
@@ -287,10 +287,12 @@ if __name__ == "__main__":
 
         if mode == "fattree":
             if exporting == True:
-                #FIXME: Instead of calling bash script import the generator
-                subprocess.call(
-                    "./tree_topology_generator.py -s 2 -r 5 -f 5 --state_min 2 --state_max 10 --replica_max 2 -o {} -p {}".format(
-                        i, "p{}".format(PROBLEM)), shell=True)
+
+		if not os.path.isfile("{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i)):
+	                #FIXME: Instead of calling bash script import the generator
+        	        subprocess.call(
+                	    "./tree_topology_generator.py -s 2 -r 1 -f 5 --state_min 2 --state_max 1 --replica_max 1 -o {} -p {}".format(
+                        	i, "p{}".format(PROBLEM)), shell=True)
 
         print("PROBLEM {}-----------------------------------------------------------------------------------").format(i)
         time.sleep(1)
