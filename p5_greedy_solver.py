@@ -19,6 +19,7 @@ from networkx.readwrite import json_graph
 import json
 import itertools
 import datetime
+import os
 
 def read_json_file(filename):
     with open(filename) as f:
@@ -241,178 +242,195 @@ def generating_delay_matrix(graph):
             d[(i, j)] = path_length
     return d
 
-def solving_placement_problem_from_file(topology_graph, request_graph, test_num):
+def solving_placement_problem_from_file(topology_graph, request_graph, test_num, results_path):
 
-    # Reading networkx file
-    G_topology = read_json_file(topology_graph)
-    G_request = read_json_file(request_graph)
+    if not os.path.isfile("{}/p5_cplex_result_{}_2".format(results_path, test_num)):
 
-    PMs = G_topology.nodes
+        # Reading networkx file
+        G_topology = read_json_file(topology_graph)
+        G_request = read_json_file(request_graph)
 
-    set_virtual_nodes = list(G_request.nodes)
-    set_state, set_replica, set_nf = [], [], []
-    for i in set_virtual_nodes:
-        if "function" in i:
-            set_nf.append(i)
-        elif "state" in i:
-            set_state.append(i)
-        elif "replica" in i:
-            set_replica.append(i)
-        else:
-            raise Exception("Invalid request graph")
+        PMs = G_topology.nodes
 
-    ordered_states = ordering_states(G_request, set_state)
-
-    mapping = {i: {} for i in ordered_states + set_replica}
-    valid_mapping = True
-
-    for s in ordered_states:
-
-        if get_replica_neighbors(s, G_request) == 0:
-            map_with_no_replicas(G_request, G_topology, mapping, PMs, set_state, set_replica, set_nf, s)
-        else:
-            replicas = get_replica_neighbors(s, G_request)
-            functions = get_function_neighbors(s, G_request, set_nf)
-            we_count, writing_edges = get_writing_edge_count(s, G_request, set_nf)
-            if we_count > 1:
-                ve_function_pairing = {replicas[i]:"" for i in range(len(replicas))}
-                for j in range(len(functions)):
-                    ve_function_pairing[replicas[j]] = functions[j]
+        set_virtual_nodes = list(G_request.nodes)
+        set_state, set_replica, set_nf = [], [], []
+        for i in set_virtual_nodes:
+            if "function" in i:
+                set_nf.append(i)
+            elif "state" in i:
+                set_state.append(i)
+            elif "replica" in i:
+                set_replica.append(i)
             else:
-                ve_function_pairing = {i: "" for i in [s] + replicas}
-                unpaired_functions = functions
-                if we_count == 1:
-                    writer_function =writing_edges[0][0]
-                    ve_function_pairing[s] = writer_function
-                    unpaired_functions.remove(writer_function)
+                raise Exception("Invalid request graph")
+
+        t1 = datetime.datetime.now()
+        ordered_states = ordering_states(G_request, set_state)
+
+        mapping = {i: {} for i in ordered_states + set_replica}
+        valid_mapping = True
+
+        for s in ordered_states:
+
+            if get_replica_neighbors(s, G_request) == 0:
+                map_with_no_replicas(G_request, G_topology, mapping, PMs, set_state, set_replica, set_nf, s)
+            else:
+                replicas = get_replica_neighbors(s, G_request)
+                functions = get_function_neighbors(s, G_request, set_nf)
+                we_count, writing_edges = get_writing_edge_count(s, G_request, set_nf)
+                if we_count > 1:
+                    ve_function_pairing = {replicas[i]:"" for i in range(len(replicas))}
+                    for j in range(len(functions)):
+                        ve_function_pairing[replicas[j]] = functions[j]
                 else:
-                    ve_function_pairing[s] = functions[0]
-                    unpaired_functions.remove(functions[0])
-
-                iter = 0
-                for ve, function in ve_function_pairing.items():
-                    try:
-                        if ve_function_pairing[ve] == "":
-                            ve_function_pairing[ve] = unpaired_functions[iter]
-                            iter += 1
-                    except:
-                        break
-
-            do_mapping(G_request, G_topology, PMs, mapping, s, ve_function_pairing, we_count)
-
-            for r in replicas:
-                do_mapping(G_request, G_topology, PMs, mapping, r, ve_function_pairing, we_count, s)
-
-    f = open("optimization_results/p5_greedy_result_{}.json".format(test_num), "a")
-    if valid_mapping:
-        for state, map in mapping.items():
-            #sum_cost += map["cost"]
-            f.write("State {} -> PM {}, COST: ?\n".format(state, map["host"]))
-            print("x_({},{}) = 1".format(map["host"], state))
-
-        # Calculating cost
-        servers = [i for i in PMs if "server" in i]
-        server_permutations = list(itertools.permutations(servers, 2))
-
-        x_vars = {(i, u): 0 for i in PMs for u in set_state + set_replica + set_nf}
-
-        for state, map in mapping.items():
-            x_vars[map["host"], state] = 1
-
-        for i in PMs:
-            if PMs[i]['NFs'] != []:
-                for u in PMs[i]['NFs']:
-                    x_vars[i, u] = 1
-
-        print("Generating state-function adjacency matrix...")
-        e_r = generating_req_adj(set_state, set_nf + set_replica, G_request)
-        print("Generating delay matrix...")
-        d = generating_delay_matrix(G_topology)
-
-        index_permutations = list(itertools.permutations((set_state + set_nf + set_replica), 2))
-        z_vars = {(u, v): 0 for u, v in index_permutations}
-
-        for u,v in index_permutations:
-            if "function" in u and "state" in v:
-                if e_r[u,v] == 1:
-                    z_vars[u,v] = 1
-            elif "function" in u and "replica" in v:
-                if e_r[u,v] == 1:
-                    raise Exception("Wrong Request Graph")
-            elif "function" in u and "function" in v:
-                if e_r[u, v] == 1:
-                    raise Exception("Wrong Request Graph")
-            elif "state" in u and "function" in v:
-                if e_r[u, v] == 1:
-                    replicas = get_replica_neighbors(u, G_request)
-                    if len(replicas) == 0:
-                        z_vars[u,v] = 1
+                    ve_function_pairing = {i: "" for i in [s] + replicas}
+                    unpaired_functions = functions
+                    if we_count == 1:
+                        writer_function =writing_edges[0][0]
+                        ve_function_pairing[s] = writer_function
+                        unpaired_functions.remove(writer_function)
                     else:
-                        links = [(u,v)] + [(r,v) for r in replicas]
+                        ve_function_pairing[s] = functions[0]
+                        unpaired_functions.remove(functions[0])
+
+                    iter = 0
+                    for ve, function in ve_function_pairing.items():
+                        try:
+                            if ve_function_pairing[ve] == "":
+                                ve_function_pairing[ve] = unpaired_functions[iter]
+                                iter += 1
+                        except:
+                            break
+
+                do_mapping(G_request, G_topology, PMs, mapping, s, ve_function_pairing, we_count)
+
+                for r in replicas:
+                    do_mapping(G_request, G_topology, PMs, mapping, r, ve_function_pairing, we_count, s)
+
+        t2 = datetime.datetime.now()
+        f = open("optimization_results/p5_greedy_result_{}.json".format(test_num), "a")
+        if valid_mapping:
+            for state, map in mapping.items():
+                #sum_cost += map["cost"]
+                f.write("State {} -> PM {}, COST: ?\n".format(state, map["host"]))
+                print("x_({},{}) = 1".format(map["host"], state))
+
+            # Calculating cost
+            servers = [i for i in PMs if "server" in i]
+            server_permutations = list(itertools.permutations(servers, 2))
+
+            x_vars = {(i, u): 0 for i in PMs for u in set_state + set_replica + set_nf}
+
+            for state, map in mapping.items():
+                x_vars[map["host"], state] = 1
+
+            for i in PMs:
+                if PMs[i]['NFs'] != []:
+                    for u in PMs[i]['NFs']:
+                        x_vars[i, u] = 1
+
+            print("Generating state-function adjacency matrix...")
+            e_r = generating_req_adj(set_state, set_nf + set_replica, G_request)
+            print("Generating delay matrix...")
+            d = generating_delay_matrix(G_topology)
+
+            index_permutations = list(itertools.permutations((set_state + set_nf + set_replica), 2))
+            z_vars = {(u, v): 0 for u, v in index_permutations}
+
+            for u,v in index_permutations:
+                if "function" in u and "state" in v:
+                    if e_r[u,v] == 1:
+                        z_vars[u,v] = 1
+                elif "function" in u and "replica" in v:
+                    if e_r[u,v] == 1:
+                        raise Exception("Wrong Request Graph")
+                elif "function" in u and "function" in v:
+                    if e_r[u, v] == 1:
+                        raise Exception("Wrong Request Graph")
+                elif "state" in u and "function" in v:
+                    if e_r[u, v] == 1:
+                        replicas = get_replica_neighbors(u, G_request)
+                        if len(replicas) == 0:
+                            z_vars[u,v] = 1
+                        else:
+                            links = [(u,v)] + [(r,v) for r in replicas]
+                            # FIXME: infinity
+                            min_cost = 10000000000
+                            min_link = None
+                            for i,j in links:
+                                source = get_PM_of_NF(G_topology, i, mapping)
+                                destination = get_PM_of_NF(G_topology, j, mapping)
+                                path_length, path_nodes, negative_cycle = bf.bellman_ford(G_topology, source=source,
+                                                                                      target=destination,
+                                                                                      weight="delay")
+                                if path_length < min_cost:
+                                    min_cost = path_length
+                                    min_link = (i,j)
+                            if min_link == (u,v):
+                                z_vars[u,v] = 1
+                elif "state" in u and "replica" in v:
+                    if e_r[u, v] == 1:
+                        z_vars[u,v] = 1
+                elif "state" in u and "state" in v:
+                    if e_r[u, v] == 1:
+                        raise Exception("Wrong Request Graph")
+                elif "replica" in u and "function" in v:
+                    if e_r[u, v] == 1:
+                        master = next(i for i in set_state if u in G_request.nodes[i]['replicas'])
+                        replicas = get_replica_neighbors(master, G_request)
+                        links = [(r, v) for r in replicas] + [(master,v)]
                         # FIXME: infinity
                         min_cost = 10000000000
                         min_link = None
-                        for i,j in links:
+                        for i, j in links:
                             source = get_PM_of_NF(G_topology, i, mapping)
                             destination = get_PM_of_NF(G_topology, j, mapping)
                             path_length, path_nodes, negative_cycle = bf.bellman_ford(G_topology, source=source,
-                                                                                  target=destination,
-                                                                                  weight="delay")
+                                                                                      target=destination,
+                                                                                      weight="delay")
                             if path_length < min_cost:
                                 min_cost = path_length
-                                min_link = (i,j)
-                        if min_link == (u,v):
-                            z_vars[u,v] = 1
-            elif "state" in u and "replica" in v:
-                if e_r[u, v] == 1:
-                    z_vars[u,v] = 1
-            elif "state" in u and "state" in v:
-                if e_r[u, v] == 1:
-                    raise Exception("Wrong Request Graph")
-            elif "replica" in u and "function" in v:
-                if e_r[u, v] == 1:
-                    master = next(i for i in set_state if u in G_request.nodes[i]['replicas'])
-                    replicas = get_replica_neighbors(master, G_request)
-                    links = [(r, v) for r in replicas] + [(master,v)]
-                    # FIXME: infinity
-                    min_cost = 10000000000
-                    min_link = None
-                    for i, j in links:
-                        source = get_PM_of_NF(G_topology, i, mapping)
-                        destination = get_PM_of_NF(G_topology, j, mapping)
-                        path_length, path_nodes, negative_cycle = bf.bellman_ford(G_topology, source=source,
-                                                                                  target=destination,
-                                                                                  weight="delay")
-                        if path_length < min_cost:
-                            min_cost = path_length
-                            min_link = (i, j)
-                    if min_link == (u, v):
-                        z_vars[u, v] = 1
-            elif "replica" in u and "state" in v:
-                if e_r[u, v] == 1:
-                    raise Exception("Wrong Request Graph")
-            elif "replica" in u and "replica" in v:
-                if e_r[u, v] == 1:
-                    raise Exception("Wrong Request Graph")
+                                min_link = (i, j)
+                        if min_link == (u, v):
+                            z_vars[u, v] = 1
+                elif "replica" in u and "state" in v:
+                    if e_r[u, v] == 1:
+                        raise Exception("Wrong Request Graph")
+                elif "replica" in u and "replica" in v:
+                    if e_r[u, v] == 1:
+                        raise Exception("Wrong Request Graph")
 
-        sum_cost = 0
+            sum_cost = 0
 
-        print("x_vars[i, u] * \tx_vars[j, v] * \te_r[u, v] * \td[i, j] * \tz_vars[u, v]")
-        for i, j in server_permutations:
-            for u, v in list(itertools.permutations(set_state + set_replica + set_nf, 2)):
-                c = x_vars[i, u] * x_vars[j, v] * e_r[u, v] * d[i, j] * z_vars[u, v]
-                if c > 0:
-                    pass
-                    #print("i : {}\tj : {}\tu : {}\tv : {}".format(i,j,u,v))
-                    #print("{} * {} * {} * {} * {}".format(x_vars[i, u], x_vars[j, v], e_r[u, v], d[i, j], z_vars[u, v]))
-                    #print("----------------------------------------------------")
-                sum_cost += c
+            print("x_vars[i, u] * \tx_vars[j, v] * \te_r[u, v] * \td[i, j] * \tz_vars[u, v]")
+            for i, j in server_permutations:
+                for u, v in list(itertools.permutations(set_state + set_replica + set_nf, 2)):
+                    c = x_vars[i, u] * x_vars[j, v] * e_r[u, v] * d[i, j] * z_vars[u, v]
+                    if c > 0:
+                        pass
+                        #print("i : {}\tj : {}\tu : {}\tv : {}".format(i,j,u,v))
+                        #print("{} * {} * {} * {} * {}".format(x_vars[i, u], x_vars[j, v], e_r[u, v], d[i, j], z_vars[u, v]))
+                        #print("----------------------------------------------------")
+                    sum_cost += c
 
+            print("*** RUNNING TIME: {} ***".format(t2-t1))
+            f.write("*** RUNNING TIME: {} ***\n".format(t2-t1))
 
-        print("*** Delay cost: {} ***".format(sum_cost))
-        f.write("*** Delay cost: {} ***\n".format(sum_cost))
+            print("*** Delay cost: {} ***".format(sum_cost))
+            f.write("*** Delay cost: {} ***\n".format(sum_cost))
 
-        return sum_cost
+            return sum_cost, t2-t1
+        else:
+            f.write("There is no valid mapping for the given problem by the Greedy Algorythm\n")
+            return 0, t2-t1
     else:
-        f.write("There is no valid mapping for the given problem by the Greedy Algorythm\n")
-        return 0
+        with open("{}/p5_greedy_result_{}.json".format(results_path, test_num)) as f:
+            lines = f.read().splitlines()
+            cost = int(lines[-1].split(" ")[3])
+            rt = lines[-2].split(" ")[3]
+            print("*** RUNNING TIME: {} ***".format(rt))
+            print("*** Delay cost: {} ***".format(cost))
+            return cost, rt
+
+
+

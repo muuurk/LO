@@ -326,9 +326,9 @@ if __name__ == "__main__":
             opt = float(opt)
             ### Getting Greedy solution ################################################################################
             print("\n***********************GREEDY***********************")
-            greedy = p5_greedy_solver.solving_placement_problem_from_file(
+            greedy, greedy_rt = p5_greedy_solver.solving_placement_problem_from_file(
                 "{}/p5_topology_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i),
-                "{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i)
+                "{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i, PATH_FOR_RESULTS)
             greedy = float(greedy)
             ### Flooding solution ################################################################################
             #TODO
@@ -340,8 +340,7 @@ if __name__ == "__main__":
         f = open('{}/summary.csv'.format(PATH_FOR_RESULTS), mode='a')
         f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         try:
-            f_writer.writerow(["Scenario {}".format(i), opt, greedy, flooding, ((greedy / opt) * 100) - 100,
-                               ((flooding / opt) * 100) - 100])
+            f_writer.writerow(["Scenario {}".format(i), opt, opt_rt, greedy, greedy_rt, flooding, ((greedy / opt) * 100) - 100])
         except Exception as e:
             f_writer.writerow(["Scenario {}".format(i), "-", "-", "-", "-", "-"])
         f.close()
