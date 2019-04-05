@@ -276,8 +276,7 @@ if __name__ == "__main__":
     f = open('{}/summary.csv'.format(PATH_FOR_RESULTS), mode='a')
     f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     f_writer.writerow(["----- {} -----".format(datetime.datetime.now())])
-    f_writer.writerow(["Scenario", "OPTIMAL", "GREEDY", "FLOODING", "GREEDY %", "FLOODING %", "GREEDY RUNNING TIME",
-                       "FLOODING RUNNING TIME"])
+    f_writer.writerow(["Scenario", "OPTIMAL", "OPTIMAL Running Time", "GREEDY", "GREEDY Running Time", "GREEDY %"])
     f.close()
 
     # Iterating through the tests
