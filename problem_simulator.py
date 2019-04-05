@@ -287,12 +287,11 @@ if __name__ == "__main__":
 
         if mode == "fattree":
             if exporting == True:
-
-		if not os.path.isfile("{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i)):
-	                #FIXME: Instead of calling bash script import the generator
-        	        subprocess.call(
-                	    "./tree_topology_generator.py -s 2 -r 1 -f 5 --state_min 2 --state_max 1 --replica_max 1 -o {} -p {}".format(
-                        	i, "p{}".format(PROBLEM)), shell=True)
+                if not os.path.isfile("{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i)):
+                    # FIXME: Instead of calling bash script import the generator
+                    subprocess.call(
+                        "./tree_topology_generator.py -s 2 -r 1 -f 5 --state_min 2 --state_max 2 --replica_max 1 -o {} -p {}".format(
+                            i, "p{}".format(PROBLEM)), shell=True)
 
         print("PROBLEM {}-----------------------------------------------------------------------------------").format(i)
         time.sleep(1)
@@ -332,7 +331,7 @@ if __name__ == "__main__":
                 "{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i), i, PATH_FOR_RESULTS)
             greedy = float(greedy)
             ### Flooding solution ################################################################################
-            #TODO
+            # TODO
             flooding = 0
 
         else:
@@ -341,7 +340,8 @@ if __name__ == "__main__":
         f = open('{}/summary.csv'.format(PATH_FOR_RESULTS), mode='a')
         f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         try:
-            f_writer.writerow(["Scenario {}".format(i), opt, opt_rt, greedy, greedy_rt, flooding, ((greedy / opt) * 100) - 100])
+            f_writer.writerow(
+                ["Scenario {}".format(i), opt, opt_rt, greedy, greedy_rt, flooding, ((greedy / opt) * 100) - 100])
         except Exception as e:
             f_writer.writerow(["Scenario {}".format(i), "-", "-", "-", "-", "-"])
         f.close()
