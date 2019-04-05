@@ -253,9 +253,9 @@ def request_validator(topology_graph, request_graph):
 
 if __name__ == "__main__":
 
-    from_num = 0
+    from_num = 1
     TEST_NUM = 20
-    exporting = True
+    exporting = False
     PROBLEM = 5
     mode = "fattree"  # test or fattree
     CPLEX_PATH = "/home/epmetra/projects/cplex/cplex/bin/x86-64_linux/cplex"
@@ -319,7 +319,7 @@ if __name__ == "__main__":
             #    "graph_models/p5_request_graph_{}.json".format(i),
             #    i)
             print("***********************OPTIMAL***********************")
-            opt, mapping = p5_optimal_solver_2.solving_placement_problem_from_file(
+            opt, mapping, opt_rt = p5_optimal_solver_2.solving_placement_problem_from_file(
                 "{}/p5_topology_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i),
                 "{}/p5_request_graph_{}.json".format(PATH_FOR_GRAPH_MODELS, i),
                 i, CPLEX_PATH, PATH_FOR_CPLEX_MODELS, PATH_FOR_RESULTS, False)

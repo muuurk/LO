@@ -431,13 +431,13 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
 
         for i in result["CPLEXSolution"]["variables"]:
             if ("x_" in list(i["name"])) and i["value"] == str(1):
-                print("{} = 1".format(i["name"]))
+                # print("{} = 1".format(i["name"]))
                 server = i["name"].split(',')[0][3:]
                 ve = i["name"].split(',')[1][:-1]
                 mapping_result[ve] = server
 
-                print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
-                cost = result["CPLEXSolution"]["header"]["objectiveValue"]
+        print("*** Delay cost: {} ***".format(result["CPLEXSolution"]["header"]["objectiveValue"]))
+        cost = result["CPLEXSolution"]["header"]["objectiveValue"]
 
     else:
         with open("{}/p5_cplex_result_{}_2".format(results_path, test_num), 'r') as file:
@@ -447,5 +447,6 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
         cost = result["CPLEXSolution"]["header"]["@objectiveValue"]
 
 
-    print("RUNNING TIME: {}".format(t2 - t1))
-    return cost, mapping_result
+    running_time = t2-t1
+    print("RUNNING TIME: {}".format(running_time))
+    return cost, mapping_result, running_time
