@@ -390,7 +390,7 @@ def solving_placement_problem_from_file(topology_graph, request_graph, test_num,
     if not os.path.isfile(CPLEX_PATH):
         raise RuntimeError('CPLEX does not exist ({})'.format(CPLEX_PATH))
 
-    if not os.path.isfile("{}/p5_cplex_model_{}_2.sav".format(CPLEX_PATH, test_num)):
+    if not os.path.isfile("{}/p5_cplex_model_{}_2.sav".format(cplex_models_path, test_num)):
         subprocess.call("{} -c 'read {}/p5_cplex_model_{}_2.lp' 'write {}/p5_cplex_model_{}_2.sav sav'".format(
             CPLEX_PATH, cplex_models_path, test_num, cplex_models_path, test_num), shell=True)
 
